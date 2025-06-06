@@ -1,0 +1,18 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: staple-demo-servicemonitor
+  namespace: monitoring  # same namespace where Prometheus is installed
+  labels:
+    release: monitoring  # must match the Prometheus release label
+spec:
+  selector:
+    matchLabels:
+      app: staple-demo    # matches your Service's selector
+  namespaceSelector:
+    matchNames:
+      - dev           # your app is running in this namespace
+  endpoints:
+    - port: http
+      path: /metrics      # change this if your app exposes metrics at another path
+      interval: 15s
