@@ -1,0 +1,90 @@
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: jenkins-np
+  labels:
+    env: dev
+    worktype: nonprod
+  annotations:
+    kubernetes.io/description: Jenkins NodePool for deploying jenkins pods.
+spec:
+  template:
+    metadata:
+      labels:
+        env: dev
+        worktype: nonprod
+        team: backend
+        intent: jenkins
+      annotations:
+        eks.cluster.name: "dev-staple-cluster"
+
+    spec:
+      nodeClassRef:
+        name: jenkins-nc
+        group: karpenter.k8s.aws
+        kind: EC2NodeClass
+      # Provisioned nodes will have these taints
+      # Taints may prevent pods from scheduling if they are not tolerated by the pod.
+      # Provisioned nodes will have these taints, but pods do not need to tolerate these taints to be provisioned by this
+      # NodePool. These taints are expected to be temporary and some other entity (e.g. a DaemonSet) is responsible for
+      # removing the taint after it has finished initializing the node.
+      # startupTaints:
+      #   - key: example.com/another-taint
+      #     effect: NoSchedule
+
+      # Requirements that constrain the parameters of provisioned nodes.
+      # These requirements are combined with pod.spec.topologySpreadConstraints, pod.spec.affinity.nodeAffinity, pod.spec.affinity.podAffinity, and pod.spec.nodeSelector rules.
+      # Operators { In, NotIn, Exists, DoesNotExist, Gt, and Lt } are supported.
+      # https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#operators
+      requirements:
+        - key: nodegroup/name
+          operator: In
+          values: [jenkins]
+        - key: nodepool/name
+          operator: In
+          values: [jenkins-np]
+        # - key: "karpenter.k8s.aws/instance-category"
+        #   operator: In
+        #   values: ["c", "m", "r"]
+        - key: "node.kubernetes.io/instance-type"
+          operator: In
+          values: ["c6g.large", "c6g.xlarge", "c6g.2xlarge", "c6g.4xlarge", "c6g.8xlarge", "c6g.12xlarge",
+          "c6gn.large", "c6gn.xlarge", "c6gn.2xlarge", "c6gn.4xlarge", "c6gn.8xlarge", "c6gn.12xlarge",
+          "c7g.xlarge","c7g.2xlarge","c7g.4xlarge","c7g.8xlarge","c7g.12xlarge",
+          "m6g.large", "m6g.xlarge", "m6g.2xlarge", "m6g.4xlarge",
+          "c4.large", "c4.xlarge", "c4.2xlarge", "c4.4xlarge", "c4.8xlarge",
+          "c5.large", "c5.xlarge", "c5.2xlarge", "c5.4xlarge", "c5.9xlarge", "c5.12xlarge",
+          "c5a.2xlarge", "c5a.4xlarge", "c5a.8xlarge",
+          "c6a.2xlarge", "c6a.4xlarge", "c6a.8xlarge", "c6a.12xlarge",
+          "c7a.2xlarge", "c7a.4xlarge", "c7a.8xlarge", "c7a.12xlarge",
+          "m4.large", "m4.xlarge", "m4.2xlarge", "m4.4xlarge", 
+          "m5.large", "m5.xlarge", "m5.2xlarge", "m5.4xlarge"]
+        - key: "karpenter.k8s.aws/instance-cpu"
+          operator: In
+          values: ["2", "4", "8", "16", "32"]
+        # - key: "karpenter.k8s.aws/instance-hypervisor"
+        #   operator: In
+        #   values: ["nitro"]
+        - key: "karpenter.k8s.aws/instance-generation"
+          operator: Gt
+          values: ["2"]
+        - key: "topology.kubernetes.io/zone"
+          operator: In
+          values: ["us-east-1a", "us-east-1b", "us-east-1c"]
+        - key: "kubernetes.io/arch"
+          operator: In
+          values: ["arm64", "amd64"]
+        - key: "karpenter.sh/capacity-type"
+          operator: In
+          values: ["spot"]
+      expireAfter: 720h
+  # Disruption section which describes the ways in which Karpenter can disrupt and replace Nodes
+  # Configuration in this section constrains how aggressive Karpenter can be with performing operations
+  # like rolling Nodes due to them hitting their maximum lifetime (expiry) or scaling down nodes to reduce cluster cost
+  disruption:
+    consolidationPolicy: WhenEmptyOrUnderutilized
+    consolidateAfter: 60s
+  limits:
+    cpu: "10"
+    memory: 20Gi
+  weight: 100
